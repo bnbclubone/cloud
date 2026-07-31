@@ -733,24 +733,8 @@ setInterval(() => {
 const ALLOWED_ORIGINS = Object.freeze([
   'https://bnbclubone.github.io/bnix/',
   'https://bnbclubone.github.io/bnixclub/',
-  'https://bnbclubone.github.io/cloud/',
-  'https://ipfs.io/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
-  'http://127.0.0.1:8080/ipfs/',
-  'https://bnixclub-2ggl8x3v.4everland.app/',
-  'https://bnixclub-vndu.4everland.app/'
+  'https://bnbclubone.github.io/cloud/'
 ]);
-
-function isIpfsGatewayUrl() {
-  try {
-    const u = new URL(window.location.href);
-    const h = u.hostname.toLowerCase();
-    if (h.indexOf('.ipfs.') !== -1 || h.indexOf('.ipns.') !== -1) return true;
-    const p = u.pathname;
-    if (p.indexOf('/ipfs/') === 0 || p.indexOf('/ipns/') === 0) return true;
-  } catch (e) {}
-  return false;
-}
 
 function verifyDomain() {
   const href = window.location.href;
@@ -759,13 +743,6 @@ function verifyDomain() {
     if (href === prefix.slice(0, -1) || href.startsWith(prefix)) {
       return { ok: true };
     }
-  }
-  // Allow any IPFS gateway serving this content (subdomain <cid>.ipfs.* / <cid>.ipns.*
-  // or path /ipfs/... /ipns/...). Authenticity is enforced by verifyCodeHashes()
-  // which pins the on-chain deployed bytecode of all 8 contracts.
-  if (isIpfsGatewayUrl()) {
-    console.log('BNIX domain check — IPFS gateway mode:', href);
-    return { ok: true };
   }
   console.warn('BNIX domain check — current url:', href);
   document.body.innerHTML = '<div style="color:red;padding:40px;text-align:center;font-size:18px">⚠️ 域名未在白名单中 — 禁止访问<br><span style="font-size:13px;color:#aaa">当前地址: ' + san(href) + '</span><br><span style="font-size:12px;color:#666">仅允许从官方部署路径访问</span></div>';
@@ -780,7 +757,7 @@ function verifyDomain() {
 //   3. CSP script-src hash     browser-natively protects inline scripts
 //   4. verifyDomain()          origin+path binding (anti-phishing)
 const SW_HASH_PLACEHOLDER = '00000000000000000000000000000000000000000000=';
-const PINNED_SW_HASH = 'uaqTtET3PQ1SxHgj7rKQAHxh+cBZMtnpudvPNxYKIkQ=';
+const PINNED_SW_HASH = 'l9od3phX2OVzyU/vt+oRijAxacA3X89GGLUo9buW+Oc=';
 async function selfIntegrityCheck() {
   try {
     const scripts = document.querySelectorAll('script:not([src])');

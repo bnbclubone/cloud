@@ -12,12 +12,7 @@ const POLICY = Object.freeze({
   CANONICAL_PREFIXES: Object.freeze([
     'https://bnbclubone.github.io/bnix/',
     'https://bnbclubone.github.io/bnixclub/',
-    'https://bnbclubone.github.io/cloud/',
-    'https://ipfs.io/ipfs/',
-    'https://cloudflare-ipfs.com/ipfs/',
-    'http://127.0.0.1:8080/ipfs/',
-    'https://bnixclub-2ggl8x3v.4everland.app/',
-    'https://bnixclub-vndu.4everland.app/'
+    'https://bnbclubone.github.io/cloud/'
   ]),
   // If you rebuild index.html, regenerate via:
   //   $ cat index.html | openssl dgst -sha256 -binary | base64
@@ -25,7 +20,7 @@ const POLICY = Object.freeze({
   //   await crypto.subtle.digest('SHA-256', new TextEncoder().encode(htmlText))
   //     .then(b => btoa(String.fromCharCode(...new Uint8Array(b))))
   // Leave empty array to skip HTML hash pinning (only origin enforced).
-  PINNED_HTML_HASHES: Object.freeze(['iCDEXmxvMhj1gK8zQSMoNrcCLpSj5sGRqnQdu6eDJXM=']),
+  PINNED_HTML_HASHES: Object.freeze(['1kutPlw4r4eWl8jOyLZ/mCpGJLh/eYSBAfPs6Pne4m0=']),
   // How often to check for SW updates (seconds)
   UPDATE_CHECK_INTERVAL_SEC: 3600
 });
@@ -54,26 +49,13 @@ function _matchesPrefix(url, prefix) {
   return true;
 }
 
-function _isIpfsGatewayUrl(url) {
-  try {
-    var u = new URL(url);
-    var h = u.hostname.toLowerCase();
-    if (h.indexOf('.ipfs.') !== -1 || h.indexOf('.ipns.') !== -1) return true;
-    var p = u.pathname;
-    if (p.indexOf('/ipfs/') === 0 || p.indexOf('/ipns/') === 0) return true;
-  } catch (_) {}
-  return false;
-}
-
 function _isCanonicalUrl(url) {
   if (!url) return false;
   var prefixes = POLICY.CANONICAL_PREFIXES;
   for (var i = 0; i < prefixes.length; i++) {
     if (_matchesPrefix(url, prefixes[i])) return true;
   }
-  // IPFS gateway mode: allow any gateway serving this content;
-  // authenticity is enforced by index.html verifyCodeHashes().
-  return _isIpfsGatewayUrl(url);
+  return false;
 }
 
 async function _sha256Base64(textOrBytes) {
