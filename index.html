@@ -757,7 +757,7 @@ function verifyDomain() {
 //   3. CSP script-src hash     browser-natively protects inline scripts
 //   4. verifyDomain()          origin+path binding (anti-phishing)
 const SW_HASH_PLACEHOLDER = '00000000000000000000000000000000000000000000=';
-const PINNED_SW_HASH = 'l9od3phX2OVzyU/vt+oRijAxacA3X89GGLUo9buW+Oc=';
+const PINNED_SW_HASH = 'rhErCN3h3xsZj5Jviao7zslN3BKCYkVyPFMPm9ZpGHo=';
 async function selfIntegrityCheck() {
   try {
     const scripts = document.querySelectorAll('script:not([src])');
@@ -931,6 +931,7 @@ async function connect() {
       'function getRefInfo(address) view returns (address,uint8,uint8,uint8)',
       'function getSwapPrices() view returns (uint256,uint256,uint256)',
       'function getPositionRaw(address,uint256) view returns (uint256,uint256,uint256,uint256)',
+      'function getPositionFlags(address,uint256) view returns (uint8)',
       'function depositBNB(address) payable',
       'function claimYieldActive()',
       'function claimYield(uint256)',
@@ -1130,23 +1131,34 @@ function renderPrices({ aPrice, bPrice, wbnbPrice }) {
 }
 
 /** Load & render 3X cap + ring for `who`.
- *  Reads threeXCapInfo directly from the Viewer contract — always uses the contract's
- *  authoritative released/remaining values. No client-side derivation. */
+ *  Mirrors the on-chain threeXCapInfo: released = eu + (ed - sd) + (et - st),
+ *  i.e. position yield + 推荐奖励(earnedDirect) + 团队奖励(earnedTeam) accrued
+ *  since each position's snapshot, so the 3x-exit bar includes referral & team rewards. */
 async function loadThreeXCap(who, fi) {
   const posC = await VIEW.positionCount(who).catch(() => BN(0));
   let tc = BN(0), trr = BN(0), trm = BN(0);
   _posCache = [];
+  // fi = farmingInfo: fi[3]=earnedDirect(推荐奖励), fi[4]=earnedTeam(团队奖励)
+  const ed = (fi && fi[3]) ? fi[3] : Z0();
+  const et = (fi && fi[4]) ? fi[4] : Z0();
 
   if (posC.gt(0)) {
     const n = Math.min(posC.toNumber(), MAX_POS);
     for (let i = 0; i < n; i++) {
       try {
-        const x = await withRetry(() => VIEW.threeXCapInfo(who, i), '3xCap.' + i);
-        if (!x[0].gt(0)) continue;
-        tc = tc.add(x[0]);
-        // x[0]=cap, x[1]=released, x[2]=remaining — contract's authoritative values
-        trr = trr.add(x[1]);
-        trm = trm.add(x[2]);
+        const flags = await V.getPositionFlags(who, i).catch(() => 0);
+        if (flags & 1) continue; // 已关闭订单不参与3倍计算
+        const raw = await withRetry(() => V.getPositionRaw(who, i), 'posRaw.' + i);
+        if (!raw || raw[0].isZero()) continue;
+        const pu = raw[0], eu = raw[1], sd = raw[2], st = raw[3];
+        const cap = pu.mul(3);
+        const dRef = ed.gte(sd) ? ed.sub(sd) : Z0();
+        const dTeam = et.gte(st) ? et.sub(st) : Z0();
+        const released = eu.add(dRef).add(dTeam);
+        const remaining = cap.gt(released) ? cap.sub(released) : Z0();
+        tc = tc.add(cap);
+        trr = trr.add(released);
+        trm = trm.add(remaining);
       } catch {}
     }
   }
@@ -1155,7 +1167,7 @@ async function loadThreeXCap(who, fi) {
   tv('rel3x', fmt(trr, 18, ' U'));
   tv('rem3x', fmt(trm, 18, ' U'));
   tv('posCount3x', posC + ' pos');
-  // Ring — reflects actual contract release percentage
+  // Ring — released（含推荐+团队奖励）/ cap
   const pct = tc.gt(0) ? Math.min(100, Number(trr.mul(100).div(tc))) : 0;
   const ringEl = $('prog3x'); if (ringEl) ringEl.style.strokeDashoffset = 100 - pct;
   tv('ringPct', pct + '%');
@@ -1195,8 +1207,16 @@ async function renderPosDetail(who, pid) {
     const cap = pu.mul(3);
     let released = BN(0), remaining = cap;
     try {
-      const x = await VIEW.threeXCapInfo(who, pid).catch(() => null);
-      if (x) { released = x[1]; remaining = x[2]; }
+      // 与 threeXCapInfo 一致：released = eu + (ed - sd) + (et - st)，含推荐+团队奖励
+      let fi2 = await VIEW.farmingInfo(who).catch(() => null);
+      if (!fi2 || fi2.every(v => v.eq && v.eq(0))) { try { fi2 = await readFarmingFromStorage(who); } catch {} }
+      if (!fi2 || fi2.length < 5) fi2 = Z5();
+      const ed2 = fi2[3];
+      const et2 = fi2[4];
+      const dRef = ed2.gte(sd) ? ed2.sub(sd) : Z0();
+      const dTeam = et2.gte(st) ? et2.sub(st) : Z0();
+      released = eu.add(dRef).add(dTeam);
+      remaining = cap.gt(released) ? cap.sub(released) : Z0();
     } catch {}
     const pct = cap.gt(0) ? Number(released.mul(10000).div(cap)) / 100 : 0;
     // Read deposit time from storage for elapsed display

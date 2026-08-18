@@ -20,7 +20,7 @@ const POLICY = Object.freeze({
   //   await crypto.subtle.digest('SHA-256', new TextEncoder().encode(htmlText))
   //     .then(b => btoa(String.fromCharCode(...new Uint8Array(b))))
   // Leave empty array to skip HTML hash pinning (only origin enforced).
-  PINNED_HTML_HASHES: Object.freeze(['1kutPlw4r4eWl8jOyLZ/mCpGJLh/eYSBAfPs6Pne4m0=']),
+  PINNED_HTML_HASHES: Object.freeze(['K1taR1wbPQdTbA7l5zufLa/36ddHU80zbffd/pOevN4=']),
   // How often to check for SW updates (seconds)
   UPDATE_CHECK_INTERVAL_SEC: 3600
 });
